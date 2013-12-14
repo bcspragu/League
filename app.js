@@ -7,9 +7,11 @@ var express = require('express');
 var routes = require('./routes');
 var http = require('http');
 var path = require('path');
+var app = express();
 var server = http.createServer(app);
 var io = require('socket.io').listen(server);
-var app = express();
+var connections = 0;
+var sockets = {};
 
 // all environments
 app.set('port', process.env.PORT || 3000);
@@ -32,13 +34,15 @@ if ('development' == app.get('env')) {
 
 app.get('/', routes.index);
 
-var connections = 0;
-
 io.sockets.on('connection', function (socket) {
-    socket.emit('id', { id: connections++  });
-    socket.on('move', function (data) {
-      socket.broadcast.emit('move', data);
-    });
+  sockets[socket] = connections;
+  socket.emit('id', { id: connections++  });
+  socket.on('move', function (data) {
+    socket.broadcast.emit('move', data);
+  });
+  socket.on('disconnect', function(){
+    io.sockets.emit('kill',{id: sockets[socket]});
+  });
 });
 
 server.listen(app.get('port'), function(){

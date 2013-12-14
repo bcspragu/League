@@ -1,10 +1,14 @@
 $(function(){
-
   var socket = io.connect('http://localhost');
 
   var id;
   socket.on('id', function (data) {
     id = data.id
+    $('.my_block').attr('id','block'+id).draggable({
+      drag: function(event, ui){
+        socket.emit('move',{id: id, x: ui.position.left, y: ui.position.top});
+      }
+    });
   });
 
   socket.on('move', function (data){
@@ -14,13 +18,16 @@ $(function(){
       block = $('#block'+data.id);
     }
     block.css({
-      x: data.x+' px',
-      y: data.y+' px'
+      top: data.y,
+      left: data.x
     });
   });
 
-  $('body').on('click','.block',function(){
-    var pos = $(this).position;
-    socket.emit('move',{id: id, x: pos.left, y: pos.top});
+  socket.on('kill',function(data){
+    $('#block'+data.id).remove();
+  });
+
+  $('body').on('click','.block',function(e){
+    e.preventDefault();
   })
 });
