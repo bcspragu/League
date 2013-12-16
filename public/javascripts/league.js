@@ -1,33 +1,31 @@
+var root3 = Math.sqrt(3);
+var hex_size = 10;
+var paper;
 $(function(){
   var socket = io.connect('http://localhost');
 
-  var id;
-  socket.on('id', function (data) {
-    id = data.id
-    $('.my_block').attr('id','block'+id).draggable({
-      drag: function(event, ui){
-        socket.emit('move',{id: id, x: ui.position.left, y: ui.position.top});
-      }
-    });
-  });
-
-  socket.on('move', function (data){
-    var block = $('#block'+data.id);
-    if(block.length == 0){
-      $('body').append('<div class="block" id="block'+data.id+'"></div>')
-      block = $('#block'+data.id);
-    }
-    block.css({
-      top: data.y,
-      left: data.x
-    });
-  });
-
-  socket.on('kill',function(data){
-    $('#block'+data.id).remove();
-  });
-
-  $('body').on('click','.block',function(e){
-    e.preventDefault();
-  })
+  paper =  Raphael("board", 500, 500);
+  paper.rect(0,0,500,500).attr({stroke: '#000', 'stroke-width':5});
+  for(var i = 0; i < 25; i++){
+    hexagon(250,250);
+    hex_size += 10;
+  }
 });
+
+function hexagon(centerx, centery){
+  //Move to top left coordinate
+  var hex_string = 'M'+(centerx-hex_size/4)+','+(centery-hex_size*root3/4);
+  //Line to top right
+  hex_string += 'L'+(centerx+hex_size/4)+','+(centery-hex_size*root3/4);
+  //Line to right edge
+  hex_string += 'L'+(centerx+hex_size/2)+','+centery;
+  //Line to bottom right
+  hex_string += 'L'+(centerx+hex_size/4)+','+(centery+hex_size*root3/4);
+  //Line to bottom left
+  hex_string += 'L'+(centerx-hex_size/4+',')+(centery+hex_size*root3/4);
+  //Line to right edge
+  hex_string += 'L'+(centerx-hex_size/2+',')+centery;
+  //Line to top left
+  hex_string += 'L'+(centerx-hex_size/4+',')+(centery-hex_size*root3/4);
+  return paper.path(hex_string);
+}

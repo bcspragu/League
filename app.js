@@ -35,14 +35,7 @@ if ('development' == app.get('env')) {
 app.get('/', routes.index);
 
 io.sockets.on('connection', function (socket) {
-  sockets[socket] = connections;
-  socket.emit('id', { id: connections++  });
-  socket.on('move', function (data) {
-    socket.broadcast.emit('move', data);
-  });
-  socket.on('disconnect', function(){
-    io.sockets.emit('kill',{id: sockets[socket]});
-  });
+
 });
 
 server.listen(app.get('port'), function(){
