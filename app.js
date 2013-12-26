@@ -33,6 +33,7 @@ if ('development' == app.get('env')) {
 }
 
 app.get('/', routes.index);
+app.post('/login', routes.login);
 
 io.sockets.on('connection', function (socket) {
 
