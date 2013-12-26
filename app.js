@@ -36,7 +36,9 @@ app.get('/', routes.index);
 app.post('/login', routes.login);
 
 io.sockets.on('connection', function (socket) {
-
+  socket.on('disconnect',function(){
+    io.sockets.emit
+  })
 });
 
 server.listen(app.get('port'), function(){

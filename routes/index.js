@@ -1,30 +1,36 @@
 var users = {
   "BlackBallz": {
+    id: 0,
     name: "Evan",
     start_loc: {x: -5, y: 5},
     start_dir: {x: 1, y: -1}
   },
   "$w0L3": {
+    id: 1,
     name: "PKels",
     start_loc: {x: 0, y: 5},
     start_dir: {x: 0, y: -1}
   },
   "Feeeeet": {
+    id: 2,
     name: "Squid",
     start_loc: {x: 5, y: 0},
     start_dir: {x: -1, y: 0}
   },
-  "JuanKorea": {
+  "KoreaJuan": {
+    id: 3,
     name: "Fat John",
     start_loc: {x: 5, y: -5},
     start_dir: {x: -1, y: 1}
   },
   "Look@TheDonut": {
+    id: 4,
     name: "PCoffs",
     start_loc: {x: 0, y: -5},
     start_dir: {x: 0, y: 1}
   },
   "SheBiz": {
+    id: 5,
     name: "BShizz",
     start_loc: {x: -5, y: 0},
     start_dir: {x: 1, y: 0}

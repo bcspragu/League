@@ -36,8 +36,15 @@ $(function(){
     var password = $('#login').val();
     $.post('/login',{password: password},function(data){
       if(data.message){
-        alert(data.message);
+        $('.message').attr('id','alert').find('a').addClass('alert');
+        $('#alert').click(function(){
+          $('.alert').text('').removeClass('alert');
+          $('.message').attr('id','');
+        });
+        $('.alert').text(data.message);
+        $('#login').val('');
       }else{
+        socket.emit('logged in', {name: data.name})
         $('#submit').animate({opacity: 0},500);
         $('#login').animate({opacity: 0},500,function(){
           $('#message').text('Welcome, '+data.name).show().animate({opacity: 1},500,function(){
