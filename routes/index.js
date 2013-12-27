@@ -29,7 +29,8 @@ var users = {
     start_loc: {x: 0, y: -5},
     start_dir: {x: 0, y: 1}
   },
-  "SheBiz": {
+  //"SheBiz": {
+  "a": {
     id: 5,
     name: "BShizz",
     start_loc: {x: -5, y: 0},
@@ -48,8 +49,13 @@ exports.login = function(req, res){
   var data = req.body;
   //Valid id
   if(typeof users[data.password] !== 'undefined'){
-    res.json(users[data.password]);
+    //They aren't already logged in
+    if(typeof sockets[users[data.password].id] === 'undefined'){
+      res.json(users[data.password]);
+    }else{
+      res.json({message: "You're already logged in, retard."});
+    }
   }else{
-    res.json({message: 'Invalid password'});
+    res.json({message: 'Invalid password, motherfucker.'});
   }
 }

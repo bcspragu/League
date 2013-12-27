@@ -3,6 +3,8 @@
  * Module dependencies.
  */
 
+//Global list of player_ids paired with locations
+sockets = {};
 var express = require('express');
 var routes = require('./routes');
 var http = require('http');
@@ -11,7 +13,6 @@ var app = express();
 var server = http.createServer(app);
 var io = require('socket.io').listen(server);
 var connections = 0;
-var sockets = {};
 
 // all environments
 app.set('port', process.env.PORT || 3000);
@@ -36,9 +37,31 @@ app.get('/', routes.index);
 app.post('/login', routes.login);
 
 io.sockets.on('connection', function (socket) {
+  socket.on('logged in',function(data){
+    socket.set('id',data.id,function(){
+      sockets[data.id] = {socket: socket, loc: data.start_loc};
+      socket.broadcast.emit('move', {id: data.id, loc: data.start_loc});
+      for(var p_id in sockets){
+        if(data.id != p_id){
+          socket.emit('move', {id: parseInt(p_id), loc: sockets[p_id].loc});
+        }
+      }
+    });
+  });
+
+  socket.on('move',function(data){
+    socket.get('id',function(err, id){
+      socket.broadcast.emit('move', {id: id, loc: data.loc});
+      sockets[id].loc = data.loc;
+    })
+  });
+
   socket.on('disconnect',function(){
-    io.sockets.emit
-  })
+    socket.get('id',function(err, id){
+      socket.broadcast.emit('kill',{id: id});
+      delete sockets[id];
+    });
+  });
 });
 
 server.listen(app.get('port'), function(){
