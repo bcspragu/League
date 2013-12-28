@@ -10,6 +10,8 @@ var game_on = false;
 var power_radius = 1;
 var max_bombs = 1;
 var current_bombs = 0;
+var bombs = {};
+var player_id;
 
 var board_size = 500; //TODO Make everything rely on this, esp hexagon creation
 var socket;
@@ -55,6 +57,7 @@ $(function(){
         $('.alert').text(data.message);
         $('#login').val('');
       }else{
+        player_id = data.id;
         createPlayer(data.start_loc,data.start_dir);
         $('#submit').animate({opacity: 0},500);
         $('#login').animate({opacity: 0},500,function(){
@@ -84,6 +87,35 @@ $(function(){
       }
     }
   });
+
+  socket.on('bomb',function(data){
+    if(logged_in){
+      var bomb_loc = grid_to_loc({x: data.x, y: data.y});
+      bombs[data.id] = paper.circle(bomb_loc.x, bomb_loc.y,8).attr({fill: '#ff0'}).animate({fill: '#f00'},3000)
+      .data('loc',{x: data.x, y: data.y});
+    }
+  });
+
+  socket.on('explode',function(data){
+    var bomb_loc = bombs[data.id].data('loc');
+    bombs[data.id].animate({r: hex_width*2*power_radius},100,'<',function(){
+      for(var x in hexagons){
+        for(var y in hexagons[x]){
+          var x = parseInt(x);
+          var y = parseInt(y);
+          var dist = hex_distance(bomb_loc,{x: x, y: y});
+          if(dist <= power_radius){
+            hexagons[x][y].data('wall',false);
+            hexagons[x][y].attr({fill: ''});
+          }
+        }
+      }
+      this.remove();
+      if(data.player_id == player_id){
+        current_bombs--;
+      }
+    });
+  })
 
   socket.on('kill',function(data){
     if(logged_in){
@@ -223,23 +255,7 @@ $(document).keydown(function(e){
           var cur_coor = grid_to_loc(cur_loc);
           var bomb_x = cur_loc.x;
           var bomb_y = cur_loc.y;
-          var bomb = paper.circle(cur_coor.x, cur_coor.y,8).attr({fill: '#ff0'}).animate({fill: '#f00'},3000,function(){
-            this.animate({r: hex_width*2*power_radius},100,'<',function(){
-              for(var x in hexagons){
-                for(var y in hexagons[x]){
-                  var x = parseInt(x);
-                  var y = parseInt(y);
-                  var dist = hex_distance({x: bomb_x, y: bomb_y},{x: x, y: y});
-                  if(dist <= power_radius){
-                    hexagons[x][y].data('wall',false);
-                    hexagons[x][y].attr({fill: ''});
-                  }
-                }
-              }
-              this.remove();
-              current_bombs--;
-            });
-          });
+          socket.emit('bomb',{x: bomb_x, y: bomb_y});
         }
         break;
     }

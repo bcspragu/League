@@ -13,6 +13,8 @@ var app = express();
 var server = http.createServer(app);
 var io = require('socket.io').listen(server);
 var connections = 0;
+var bombs = {};
+var bomb_id = 0;
 
 // all environments
 app.set('port', process.env.PORT || 3000);
@@ -37,6 +39,7 @@ app.get('/', routes.index);
 app.post('/login', routes.login);
 
 io.sockets.on('connection', function (socket) {
+
   socket.on('logged in',function(data){
     socket.set('id',data.id,function(){
       sockets[data.id] = {socket: socket, loc: data.start_loc};
@@ -46,6 +49,17 @@ io.sockets.on('connection', function (socket) {
           socket.emit('move', {id: parseInt(p_id), loc: sockets[p_id].loc});
         }
       }
+    });
+  });
+
+  socket.on('bomb',function(data){
+    socket.get('id',function(err, id){
+      var current_bomb_id = bomb_id;
+      io.sockets.emit('bomb',{x: data.x, y: data.y, id: current_bomb_id, player_id: id});
+      setTimeout(function(){
+        io.sockets.emit('explode', {id: current_bomb_id, player_id: id});
+      },3000);
+      bomb_id++;
     });
   });
 
