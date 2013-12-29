@@ -3,7 +3,7 @@ var hex_width = 25; //Width of the base
 var hex_height = hex_width*root3;
 var paper;
 var x,y;
-var hexagons = {};
+var hexagons;
 var other_players = [];
 var logged_in = false;
 var game_on = false;
@@ -24,25 +24,17 @@ var directions = [
   {x: -1, y: 1}
 ];
 
+var x = -5;
+var y = 5;
+
 var direction_index = 3;
 var player, pointer;
 var cur_loc;
-
-for(var x = -5; x <= 5; x++){
-  hexagons[x] = {};
-  for(var y = -5; y <= 5; y++){
-    hexagons[x][y] = 0;
-  }
-}
-
-x = -6;
-y = 5;
 
 $(function(){
   socket = io.connect('http://localhost');
   $('#login').focus();
 
-  init_map();
   $('#submit').click(function(e){
     e.preventDefault();
     var password = $('#login').val();
@@ -57,17 +49,20 @@ $(function(){
         $('.alert').text(data.message);
         $('#login').val('');
       }else{
-        player_id = data.id;
-        createPlayer(data.start_loc,data.start_dir);
+        var user_info = data.user_info;
+        hexagons = data.map;
+        init_map();
+        player_id = user_info.id;
+        createPlayer(user_info.start_loc,user_info.start_dir);
         $('#submit').animate({opacity: 0},500);
         $('#login').animate({opacity: 0},500,function(){
-          $('#message').text('Welcome, '+data.name).show().animate({opacity: 1},500,function(){
+          $('#message').text('Welcome, '+user_info.name).show().animate({opacity: 1},500,function(){
             setTimeout(function(){
               $('#login_container').animate({opacity: 0},500,function(){
                 $(this).remove();
                 $('#board').animate({opacity: 1},500);
                 logged_in = true;
-                socket.emit('logged in', data);
+                socket.emit('logged in', user_info);
               })
             },500);
           });
@@ -97,24 +92,26 @@ $(function(){
   });
 
   socket.on('explode',function(data){
-    var bomb_loc = bombs[data.id].data('loc');
-    bombs[data.id].animate({r: hex_width*2*power_radius},100,'<',function(){
-      for(var x in hexagons){
-        for(var y in hexagons[x]){
-          var x = parseInt(x);
-          var y = parseInt(y);
-          var dist = hex_distance(bomb_loc,{x: x, y: y});
-          if(dist <= power_radius){
-            hexagons[x][y].data('wall',false);
-            hexagons[x][y].attr({fill: ''});
+    if(logged_in){
+      var bomb_loc = bombs[data.id].data('loc');
+      bombs[data.id].animate({r: hex_width*2*power_radius},100,'<',function(){
+        for(var x in hexagons){
+          for(var y in hexagons[x]){
+            var x = parseInt(x);
+            var y = parseInt(y);
+            var dist = hex_distance(bomb_loc,{x: x, y: y});
+            if(dist <= power_radius){
+              hexagons[x][y].type = 'open';
+              hexagons[x][y].piece.attr({fill: ''});
+            }
           }
         }
-      }
-      this.remove();
-      if(data.player_id == player_id){
-        current_bombs--;
-      }
-    });
+        this.remove();
+        if(data.player_id == player_id){
+          current_bombs--;
+        }
+      });
+    }
   })
 
   socket.on('kill',function(data){
@@ -135,35 +132,9 @@ function init_map(start_loc, start_dir){
   paper.rect(0,0,board_size,board_size,10).attr({stroke: '#000', 'stroke-width':5, fill: '#ddd'});
   for(var i = 1; i < 12; i++){
     y = i > 6 ? (11-i) : 5;
-    x++;
     var osc_i = (i > 5) ? (12 - i) : i;
     column_of_hexagons(25+i*hex_width*1.5,(175-hex_height/4)-hex_height*osc_i+osc_i*hex_height/2,osc_i+5);
-  }
-  delete_empty_cells();
-  draw_walls();
-}
-
-function delete_empty_cells(){
-  for(var x in hexagons){
-    for(var y in hexagons[x]){
-      if(hexagons[x][y] === 0){
-        delete hexagons[x][y];
-      }
-    }
-  }
-}
-
-function draw_walls(){
-  var center = {x: 0, y: 0};
-  for(var x in hexagons){
-    for(var y in hexagons[x]){
-      var x = parseInt(x);
-      var y = parseInt(y);
-      var cent_dist = hex_distance(center,{x: x, y: y});
-      if(cent_dist == 4 || cent_dist == 2 || cent_dist == 0){
-        hexagons[x][y].attr({fill: '#000'}).data('wall',true);
-      }
-    }
+    x++;
   }
 }
 
@@ -206,9 +177,13 @@ function hexagon(centerx, centery){
   hex_string += 'L'+(centerx-hex_width/2+',')+(centery-hex_height/2);
   var hexagon = paper.path(hex_string).attr({'stroke-width':2});
   //Draws coordinates
-  paper.text(centerx,centery,x+','+y);
-  hexagons[x][y] = hexagon;
-  hexagon.data('wall',false);
+  //paper.text(centerx,centery,x+','+y);
+  switch(hexagons[x][y].type){
+    case 'wall':
+      hexagon.attr({fill: '#000'});
+      break;
+  }
+  hexagons[x][y].piece = hexagon;
   hexagon.data('x',x);
   hexagon.data('y',y);
   return hexagon;
@@ -255,7 +230,7 @@ $(document).keydown(function(e){
           var cur_coor = grid_to_loc(cur_loc);
           var bomb_x = cur_loc.x;
           var bomb_y = cur_loc.y;
-          socket.emit('bomb',{x: bomb_x, y: bomb_y});
+          socket.emit('bomb',{x: bomb_x, y: bomb_y, power_radius: power_radius});
         }
         break;
     }
@@ -294,13 +269,13 @@ function isValid(direction){
   var off = direction_offset();
   var x = cur_loc.x + off.x*direction;
   var y = cur_loc.y + off.y*direction;
-  return (typeof hexagons[x] !== 'undefined' && typeof hexagons[x][y] !== 'undefined' && !hexagons[x][y].data('wall'));
+  return (typeof hexagons[x] !== 'undefined' && typeof hexagons[x][y] !== 'undefined' && hexagons[x][y].type != 'wall');
 }
 
 function isWall(loc){
   var x = loc.x;
   var y = loc.y;
-  return (typeof hexagons[x] !== 'undefined' && typeof hexagons[x][y] !== 'undefined' && hexagons[x][y].data('wall'));
+  return (typeof hexagons[x] !== 'undefined' && typeof hexagons[x][y] !== 'undefined' && hexagons[x][y].type == 'wall');
 }
 
 function get_index(dir){

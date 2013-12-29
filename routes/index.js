@@ -51,11 +51,11 @@ exports.login = function(req, res){
   if(typeof users[data.password] !== 'undefined'){
     //They aren't already logged in
     if(typeof sockets[users[data.password].id] === 'undefined'){
-      res.json(users[data.password]);
+      res.json({user_info: users[data.password], map: hexagons});
     }else{
       res.json({message: "You're already logged in, retard."});
     }
   }else{
     res.json({message: 'Invalid password, motherfucker.'});
   }
-}
+};
