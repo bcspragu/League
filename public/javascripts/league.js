@@ -75,10 +75,10 @@ $(function(){
     if(logged_in){
       var cur_coor = grid_to_loc(data.loc);
       if(typeof other_players[data.id] === 'undefined'){
-        other_players[data.id] = paper.circle(cur_coor.x, cur_coor.y,5).attr({fill: '#00f', opacity: 0})
+        other_players[data.id] = paper.image('/images/'+data.id+'.png',cur_coor.x-hex_width/2, cur_coor.y-hex_width/4, hex_width, hex_width)
         .animate({opacity: 1},250);
       }else{
-        other_players[data.id].animate({cx: cur_coor.x, cy: cur_coor.y},50);
+        other_players[data.id].animate({x: cur_coor.x-hex_width/2, y: cur_coor.y-hex_width/4},50);
       }
     }
   });
@@ -146,7 +146,7 @@ function hex_distance(coor1, coor2){
 function createPlayer(start_loc, start_dir){
   cur_loc = start_loc;
   var cur_coor = grid_to_loc(cur_loc);
-  player = paper.circle(cur_coor.x, cur_coor.y,5).attr({fill: '#0f0'});
+  player = paper.image('/images/'+player_id+'.png',cur_coor.x-hex_width/2, cur_coor.y-hex_height/4,hex_width,hex_width);
   direction_index = get_index(start_dir);
   var off = direction_offset();
   var pointer_coor = grid_to_loc({x: start_loc.x+start_dir.x, y: start_loc.y+start_dir.y});
@@ -254,7 +254,7 @@ function move_piece(direction){
   cur_loc.x += off.x*direction;
   cur_loc.y += off.y*direction;
   var cur_coor = grid_to_loc({x: cur_loc.x, y: cur_loc.y});
-  player.animate({cx: cur_coor.x, cy: cur_coor.y},50);
+  player.animate({x: cur_coor.x-hex_width/2, y: cur_coor.y-hex_height/4},50);
   move_pointer();
 }
 
