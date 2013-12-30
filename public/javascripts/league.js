@@ -7,6 +7,7 @@ var hexagons;
 var other_players = [];
 var logged_in = false;
 var game_on = false;
+var alive = true;
 var power_radius = 1;
 var max_bombs = 1;
 var current_bombs = 0;
@@ -54,6 +55,9 @@ $(function(){
         init_map();
         player_id = user_info.id;
         createPlayer(user_info.start_loc,user_info.start_dir);
+        if(!data.alive){
+          dead(data.killed_by);
+        }
         $('#submit').animate({opacity: 0},500);
         $('#login').animate({opacity: 0},500,function(){
           $('#message').text('Welcome, '+user_info.name).show().animate({opacity: 1},500,function(){
@@ -118,7 +122,11 @@ $(function(){
 
   socket.on('kill',function(data){
     if(logged_in){
-      if(typeof other_players[data.id] !== 'undefined'){
+      //You died
+      if(data.id == player_id){
+        dead(data.killed_by);
+      }
+      else if(typeof other_players[data.id] !== 'undefined'){
         other_players[data.id].animate({opacity: 0},250,function(){
           other_players[data.id].remove();
           delete other_players[data.id];
@@ -138,6 +146,19 @@ function init_map(start_loc, start_dir){
     column_of_hexagons(25+i*hex_width*1.5,(175-hex_height/4)-hex_height*osc_i+osc_i*hex_height/2,osc_i+5);
     x++;
   }
+}
+
+function dead(killed_by){
+  var dead_text = 'Dead.';
+  if(typeof killed_by !== 'undefined'){
+    dead_text = "Killed by\n"+killed_by;
+  }
+  paper.text(board_size/2,board_size/2,dead_text).attr({'text-anchor': 'middle', 'font-size': 100, 'font-weight': 'bold', fill: '#fff','stroke-width': 5, stroke: '#000', opacity: 0}).animate({opacity: 0.8},1000);
+  alive = false;
+  player.animate({opacity: 0},250,function(){
+    player.remove();
+    pointer.remove();
+  });
 }
 
 function hex_distance(coor1, coor2){
@@ -204,7 +225,7 @@ function grid_to_loc(points){
 //39 - right
 //40 - down
 $(document).keydown(function(e){
-  if(logged_in){
+  if(logged_in && alive){
     switch(e.which){
       case 37:
         direction_index = (direction_index+5) % 6;

@@ -16,6 +16,7 @@ var io = require('socket.io').listen(server);
 var connections = 0;
 var bombs = {};
 var bomb_id = 0;
+var powerups = ['speed','radius','capacity','open','open'];
 
 var x = -5;
 var y = 5;
@@ -52,6 +53,14 @@ function hex_distance(coor1, coor2){
   return (Math.abs(coor1.x - coor2.x) + Math.abs(coor1.y - coor2.y) + Math.abs(coor1.x + coor1.y - coor2.x - coor2.y)) / 2;
 }
 
+function random_powerup(){
+  return powerups[getRandomInt(powerups.length)];
+}
+
+function getRandomInt(upper) {
+    return Math.floor(Math.random() * upper);
+}
+
 // all environments
 app.set('port', process.env.PORT || 3000);
 app.set('views', path.join(__dirname, 'views'));
@@ -79,16 +88,19 @@ io.sockets.on('connection', function (socket) {
   socket.on('logged in',function(data){
     connections++;
     socket.set('id',data.id,function(){
-      sockets[data.id] = {socket: socket, loc: data.start_loc};
-      socket.broadcast.emit('move', {id: data.id, loc: data.start_loc});
-      for(var p_id in sockets){
-        if(data.id != p_id){
-          socket.emit('move', {id: parseInt(p_id), loc: sockets[p_id].loc});
+      //Make sure they haven't logged in before
+      if(typeof sockets[data.id] === 'undefined'){
+        sockets[data.id] = {socket: socket, loc: data.start_loc, alive: true, killed_by: -1};
+        socket.broadcast.emit('move', {id: data.id, loc: data.start_loc});
+        for(var p_id in sockets){
+          if(data.id != p_id && sockets[p_id].alive){
+            socket.emit('move', {id: parseInt(p_id), loc: sockets[p_id].loc});
+          }
         }
-      }
-      //Gangs all here guys
-      if(connections == 6){
-        io.sockets.emit('start');
+        //Gangs all here guys
+        if(connections == 6){
+          io.sockets.emit('start');
+        }
       }
     });
   });
@@ -106,7 +118,22 @@ io.sockets.on('connection', function (socket) {
             var y = parseInt(y);
             var dist = hex_distance(bomb_loc,{x: x, y: y});
             if(dist <= data.power_radius){
-              hexagons[x][y].type = 'open';
+              hexagons[x][y].type = random_powerup();
+              if(hexagons[x][y].type !== 'open'){
+                io.sockets.emit('powerup', {type: hexagons[x][y].type, x: x, y: y});
+              }
+              for(var p_id in sockets){
+                var loc = sockets[p_id].loc;
+                if(loc.x == x && loc.y == y){
+                  for(var password in routes.users){
+                    if(routes.users[password].id == id){
+                      io.sockets.emit('kill',{id: p_id, killed_by: routes.users[password].name});
+                    }
+                  }
+                  sockets[p_id].alive = false;
+                  sockets[p_id].killed_by = id;
+                }
+              }
             }
           }
         }
@@ -125,7 +152,6 @@ io.sockets.on('connection', function (socket) {
   socket.on('disconnect',function(){
     socket.get('id',function(err, id){
       socket.broadcast.emit('kill',{id: id});
-      delete sockets[id];
       connections--;
     });
   });

@@ -1,4 +1,4 @@
-var users = {
+exports.users = {
   "BlackBallz": {
     id: 0,
     name: "Evan",
@@ -48,13 +48,22 @@ exports.index = function(req, res){
 exports.login = function(req, res){
   var data = req.body;
   //Valid id
-  if(typeof users[data.password] !== 'undefined'){
+  if(typeof exports.users[data.password] !== 'undefined'){
     //They aren't already logged in
-    if(typeof sockets[users[data.password].id] === 'undefined'){
-      res.json({user_info: users[data.password], map: hexagons});
+    var user = sockets[exports.users[data.password].id];
+    if(typeof user === 'undefined'){
+      res.json({user_info: exports.users[data.password], map: hexagons, alive: true});
     }else{
-      res.json({message: "You're already logged in, retard."});
-    }
+      if(user.alive){
+        res.json({message: "You're already logged in, retard."});
+      }else{
+        for(var password in exports.users){
+          if(exports.users[password].id == user.killed_by){
+            res.json({user_info: exports.users[data.password], map: hexagons, alive: user.alive, killed_by: exports.users[password].name});
+          }
+        }
+      }
+    };
   }else{
     res.json({message: 'Invalid password, motherfucker.'});
   }
