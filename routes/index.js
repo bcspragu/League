@@ -42,7 +42,7 @@ var users = {
  */
 
 exports.index = function(req, res){
-  res.render('index', { title: 'Express' });
+  res.render('index', { title: 'To The Death.'});
 };
 
 exports.login = function(req, res){
