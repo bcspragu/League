@@ -2,17 +2,20 @@ var root3 = Math.sqrt(3);
 var hex_width = 25; //Width of the base
 var hex_height = hex_width*root3;
 var paper;
-var x,y;
 var hexagons;
 var other_players = [];
 var logged_in = false;
 var game_on = false;
 var alive = true;
-var power_radius = 1;
+var power_radius = 2;
 var max_bombs = 1;
 var current_bombs = 0;
 var bombs = {};
 var player_id;
+var powerups = {};
+var speed = 250;
+var can_move = true;
+var hud;
 
 var board_size = 500; //TODO Make everything rely on this, esp hexagon creation
 var socket;
@@ -24,9 +27,6 @@ var directions = [
   {x: -1, y: 0},
   {x: -1, y: 1}
 ];
-
-var x = -5;
-var y = 5;
 
 var direction_index = 3;
 var player, pointer;
@@ -51,6 +51,7 @@ $(function(){
         $('#login').val('');
       }else{
         var user_info = data.user_info;
+        socket.emit('log in', user_info);
         hexagons = data.map;
         init_map();
         player_id = user_info.id;
@@ -66,7 +67,7 @@ $(function(){
                 $(this).remove();
                 $('#board').animate({opacity: 1},500);
                 logged_in = true;
-                socket.emit('logged in', user_info);
+                socket.emit('logged in',user_info);
               })
             },500);
           });
@@ -82,7 +83,7 @@ $(function(){
         other_players[data.id] = paper.image('/images/'+data.id+'.png',cur_coor.x-hex_width/2, cur_coor.y-hex_height/4, hex_width, hex_width)
         .animate({opacity: 1},250);
       }else{
-        other_players[data.id].animate({x: cur_coor.x-hex_width/2, y: cur_coor.y-hex_height/4},50);
+        other_players[data.id].animate({x: cur_coor.x-hex_width/2, y: cur_coor.y-hex_height/4},data.speed);
       }
     }
   });
@@ -98,13 +99,13 @@ $(function(){
   socket.on('explode',function(data){
     if(logged_in){
       var bomb_loc = bombs[data.id].data('loc');
-      bombs[data.id].animate({r: hex_width*2*power_radius},100,'<',function(){
+      bombs[data.id].animate({r: hex_width*data.power_radius/2},100,'<',function(){
         for(var x in hexagons){
           for(var y in hexagons[x]){
             var x = parseInt(x);
             var y = parseInt(y);
             var dist = hex_distance(bomb_loc,{x: x, y: y});
-            if(dist <= power_radius){
+            if(dist <= data.power_radius/2){
               hexagons[x][y].type = 'open';
               hexagons[x][y].piece.attr({'fill-opacity': 1}).animate({fill: '#f00'},100,function(){
                 this.animate({'fill-opacity': 0, fill: ''},500);
@@ -115,6 +116,7 @@ $(function(){
         this.remove();
         if(data.player_id == player_id){
           current_bombs--;
+          update_powerup_display();
         }
       });
     }
@@ -135,17 +137,79 @@ $(function(){
     }
   });
 
+  socket.on('powerup',function(data){
+    if(logged_in){
+      draw_powerup(data.type,{x: data.x, y: data.y});
+    }
+  });
+
+  socket.on('retrieved',function(data){
+    if(logged_in){
+      if(data.player_id == player_id){
+        switch(data.type){
+          case 'speed':
+            speed = Math.max(50, speed-50);
+            break;
+          case 'radius':
+            power_radius = Math.min(6,power_radius+1);
+            break;
+          case 'capacity':
+            max_bombs++;
+            break;
+        }
+      }
+      //Destroy the powerup
+      powerups[data.x+','+data.y].remove();
+      delete powerups[data.x+','+data.y];
+      update_powerup_display();
+    }
+  });
 });
+
+function update_powerup_display(){
+  var disp_speed = (300-speed)/50;
+  var disp_power = Math.floor(power_radius/2);
+  var disp_bombs = max_bombs - current_bombs;
+  var text = 'Speed: ';
+  text += ((disp_speed == 5) ? '5 (Max)' : disp_speed)+"\n";
+  text += 'Radius: ';
+  text += ((disp_power == 3) ? '3 (Max)' : disp_power)+"\n";
+  text += 'Bombs: '+disp_bombs;
+  hud.attr('text', text);
+}
+
+function draw_powerup(powerup, loc){
+  var fader = function(color){
+    return Raphael.animation({fill: color},1000).repeat(Infinity);
+  }
+
+  var coor = grid_to_loc(loc);
+  switch(powerup){
+    case 'speed':
+      powerups[loc.x+','+loc.y] = paper.circle(coor.x,coor.y,10).attr({fill: 'green'}).animate(fader('yellow'));
+      break;
+    case 'radius':
+      powerups[loc.x+','+loc.y] = paper.circle(coor.x,coor.y,10).attr({fill: 'black'}).animate(fader('red'));
+      break;
+    case 'capacity':
+      powerups[loc.x+','+loc.y] = paper.circle(coor.x,coor.y,10).attr({fill: 'blue'}).animate(fader('white'));
+      break;
+  }
+  
+}
 
 function init_map(start_loc, start_dir){
   paper = Raphael("board", board_size, board_size);
   paper.rect(0,0,board_size,board_size,10).attr({stroke: '#000', 'stroke-width':5, fill: '#ddd'});
-  for(var i = 1; i < 12; i++){
-    y = i > 6 ? (11-i) : 5;
-    var osc_i = (i > 5) ? (12 - i) : i;
-    column_of_hexagons(25+i*hex_width*1.5,(175-hex_height/4)-hex_height*osc_i+osc_i*hex_height/2,osc_i+5);
-    x++;
+  for(var x in hexagons){
+    for(var y in hexagons[x]){
+      var x = parseInt(x);
+      var y = parseInt(y);
+      hexagon({x: x, y: y});
+    }
   }
+  hud = paper.text(10,board_size*0.95,'').attr('text-anchor','start');
+  update_powerup_display();
 }
 
 function dead(killed_by){
@@ -176,39 +240,35 @@ function createPlayer(start_loc, start_dir){
   pointer = paper.circle((pointer_coor.x+cur_coor.x)/2,(pointer_coor.y+cur_coor.y)/2,3).attr({fill: '#f0f'});
 }
 
-function column_of_hexagons(firstx, firsty, number){
-  for(var i = 0; i < number; i++){
-    hexagon(firstx,firsty+i*hex_height);
-    y--;
-  }
-}
-
-function hexagon(centerx, centery){
+function hexagon(pt){
+  var center = grid_to_loc(pt);
   //Move to top left coordinate
-  var hex_string = 'M'+(centerx-hex_width/2)+','+(centery-hex_height/2);
+  var hex_string = 'M'+(center.x-hex_width/2)+','+(center.y-hex_height/2);
   //Line to top right
-  hex_string += 'L'+(centerx+hex_width/2)+','+(centery-hex_height/2);
+  hex_string += 'L'+(center.x+hex_width/2)+','+(center.y-hex_height/2);
   //Line to right edge
-  hex_string += 'L'+(centerx+hex_width)+','+centery;
+  hex_string += 'L'+(center.x+hex_width)+','+center.y;
   //Line to bottom right
-  hex_string += 'L'+(centerx+hex_width/2)+','+(centery+hex_height/2);
+  hex_string += 'L'+(center.x+hex_width/2)+','+(center.y+hex_height/2);
   //Line to bottom left
-  hex_string += 'L'+(centerx-hex_width/2+',')+(centery+hex_height/2);
+  hex_string += 'L'+(center.x-hex_width/2+',')+(center.y+hex_height/2);
   //Line to left edge
-  hex_string += 'L'+(centerx-hex_width+',')+centery;
+  hex_string += 'L'+(center.x-hex_width+',')+center.y;
   //Line to top left
-  hex_string += 'L'+(centerx-hex_width/2+',')+(centery-hex_height/2);
+  hex_string += 'L'+(center.x-hex_width/2+',')+(center.y-hex_height/2);
   var hexagon = paper.path(hex_string).attr({'stroke-width':2});
   //Draws coordinates
-  //paper.text(centerx,centery,x+','+y);
-  switch(hexagons[x][y].type){
+  //paper.text(center.x,center.y,x+','+y);
+  switch(hexagons[pt.x][pt.y].type){
     case 'wall':
       hexagon.attr({fill: '#000'});
       break;
+    case 'open':
+      break;
+    default:
+      draw_powerup(hexagons[pt.x][pt.y].type,pt);
   }
-  hexagons[x][y].piece = hexagon;
-  hexagon.data('x',x);
-  hexagon.data('y',y);
+  hexagons[pt.x][pt.y].piece = hexagon;
   return hexagon;
 }
 
@@ -236,15 +296,17 @@ $(document).keydown(function(e){
         move_pointer();
         break;
       case 38:
-        if(isValid(1)){
+        if(isValid(1) && can_move){
+          can_move = false;
           move_piece(1);
-          socket.emit('move', {loc: cur_loc});
+          socket.emit('move', {loc: cur_loc, speed: speed});
         }
         break;
       case 40:
-        if(isValid(-1)){
+        if(isValid(-1) && can_move){
+          can_move = false;
           move_piece(-1);
-          socket.emit('move', {loc: cur_loc});
+          socket.emit('move', {loc: cur_loc, speed: speed});
         }
         break;
       case 32:
@@ -257,6 +319,7 @@ $(document).keydown(function(e){
         }
         break;
     }
+    update_powerup_display();
   }
 });
 
@@ -269,7 +332,7 @@ function move_pointer(){
   var off = direction_offset();
   off = grid_to_loc({x: off.x + cur_loc.x, y: off.y + cur_loc.y});
   var cur_coor = grid_to_loc({x: cur_loc.x, y: cur_loc.y});
-  pointer.animate({cx: (cur_coor.x + off.x)/2, cy: (cur_coor.y + off.y)/2},50);
+  pointer.animate({cx: (cur_coor.x + off.x)/2, cy: (cur_coor.y + off.y)/2},speed);
 }
 
 function move_piece(direction){
@@ -277,7 +340,9 @@ function move_piece(direction){
   cur_loc.x += off.x*direction;
   cur_loc.y += off.y*direction;
   var cur_coor = grid_to_loc({x: cur_loc.x, y: cur_loc.y});
-  player.animate({x: cur_coor.x-hex_width/2, y: cur_coor.y-hex_height/4},50);
+  player.animate({x: cur_coor.x-hex_width/2, y: cur_coor.y-hex_height/4},speed,function(){
+    can_move = true;
+  });
   move_pointer();
 }
 

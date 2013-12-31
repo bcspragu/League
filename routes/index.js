@@ -49,19 +49,24 @@ exports.login = function(req, res){
   var data = req.body;
   //Valid id
   if(typeof exports.users[data.password] !== 'undefined'){
-    //They aren't already logged in
     var user = sockets[exports.users[data.password].id];
+    //They aren't already logged in
     if(typeof user === 'undefined'){
       res.json({user_info: exports.users[data.password], map: hexagons, alive: true});
     }else{
-      if(user.alive){
+      if(user.logged_in){
         res.json({message: "You're already logged in, retard."});
       }else{
+        var killed_by;
         for(var password in exports.users){
           if(exports.users[password].id == user.killed_by){
-            res.json({user_info: exports.users[data.password], map: hexagons, alive: user.alive, killed_by: exports.users[password].name});
+            killed_by = exports.users[password].name;
           }
         }
+        //If they aren't already logged in, give them the current situation
+        var u_data = exports.users[data.password];
+        var user_info = {id: u_data.id, name: u_data.name, start_dir: u_data.start_dir, start_loc: user.loc};
+        res.json({user_info: user_info, map: hexagons, alive: user.alive, killed_by: killed_by});
       }
     };
   }else{
