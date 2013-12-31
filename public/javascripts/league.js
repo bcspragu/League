@@ -16,6 +16,8 @@ var powerups = {};
 var speed = 250;
 var can_move = true;
 var hud;
+var player_list;
+var users = ["Evan","PKels","Squid","Fat John","PCoffs","BShizz"];
 
 var board_size = 500; //TODO Make everything rely on this, esp hexagon creation
 var socket;
@@ -53,8 +55,8 @@ $(function(){
         var user_info = data.user_info;
         socket.emit('log in', user_info);
         hexagons = data.map;
-        init_map();
         player_id = user_info.id;
+        init_map();
         createPlayer(user_info.start_loc,user_info.start_dir);
         if(!data.alive){
           dead(data.killed_by);
@@ -82,6 +84,7 @@ $(function(){
       if(typeof other_players[data.id] === 'undefined'){
         other_players[data.id] = paper.image('/images/'+data.id+'.png',cur_coor.x-hex_width/2, cur_coor.y-hex_height/4, hex_width, hex_width)
         .animate({opacity: 1},250);
+        update_player_display();
       }else{
         other_players[data.id].animate({x: cur_coor.x-hex_width/2, y: cur_coor.y-hex_height/4},data.speed);
       }
@@ -164,6 +167,10 @@ $(function(){
       update_powerup_display();
     }
   });
+
+  socket.on('start',function(){
+    game_on = true;
+  });
 });
 
 function update_powerup_display(){
@@ -176,6 +183,22 @@ function update_powerup_display(){
   text += ((disp_power == 3) ? '3 (Max)' : disp_power)+"\n";
   text += 'Bombs: '+disp_bombs;
   hud.attr('text', text);
+}
+
+function update_player_display(){
+  var no_names = true;
+  var player_text = "Waiting for:\n";
+  for(var i = 0; i < users.length; i++){
+    if(typeof other_players[i] === 'undefined' && i != player_id){
+      player_text += users[i]+"\n";
+      no_names = false;
+    }
+  }
+  //Leave it blank if there aren't any names
+  if(no_names){
+    player_text = '';
+  }
+  player_list.attr('text', player_text);
 }
 
 function draw_powerup(powerup, loc){
@@ -209,7 +232,9 @@ function init_map(start_loc, start_dir){
     }
   }
   hud = paper.text(10,board_size*0.95,'').attr('text-anchor','start');
+  player_list = paper.text(board_size-10,board_size*0.90,'').attr('text-anchor','end');
   update_powerup_display();
+  update_player_display();
 }
 
 function dead(killed_by){
@@ -285,7 +310,7 @@ function grid_to_loc(points){
 //39 - right
 //40 - down
 $(document).keydown(function(e){
-  if(logged_in && alive){
+  if(logged_in && alive && game_on){
     switch(e.which){
       case 37:
         direction_index = (direction_index+5) % 6;
