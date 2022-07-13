@@ -35,7 +35,7 @@ var player, pointer;
 var cur_loc;
 
 $(function(){
-  socket = io.connect('http://'+window.location.hostname);
+  socket = io.connect('/');
   $('#login').focus();
 
   $('#submit').click(function(e){
